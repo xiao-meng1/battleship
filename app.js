@@ -1,5 +1,20 @@
-const createShip = (length) => {
+import * as VIEW from './view';
+
+const createShip = (name, length, orientation, startPosition) => {
   const shipBody = new Array(length).fill(null);
+  const [rowIndex, colIndex] = startPosition;
+  const coordinates = [];
+
+  if (orientation === 'horizontal') {
+    for (let i = 0; i < length; i += 1) {
+      coordinates.push([rowIndex, i + colIndex]);
+    }
+  } else if (orientation === 'vertical') {
+    for (let i = 0; i < length; i += 1) {
+      coordinates.push([i + rowIndex, colIndex]);
+    }
+  }
+
   const hit = (index) => {
     if (index >= 0 || index <= length - 1) {
       shipBody[index] = 'hit';
@@ -13,32 +28,25 @@ const createShip = (length) => {
     return false;
   };
   const getShipBody = () => [...shipBody];
+  const getCoordinates = () => [...coordinates];
 
-  return { hit, isSunk, getShipBody };
+  return { name, hit, isSunk, getShipBody, getCoordinates };
 };
 
 const createGameboard = () => {
   const ships = [];
   const missedShots = [];
   const hitShots = [];
+  const totalSquares = [];
+
+  for (let i = 0; i < 10; i += 1) {
+    for (let j = 0; j < 10; j += 1) {
+      totalSquares.push([i, j]);
+    }
+  }
 
   const addShip = (name, length, orientation, startPosition) => {
-    const newShip = createShip(length);
-    const [rowIndex, colIndex] = startPosition;
-
-    newShip.name = name;
-    newShip.coordinates = [];
-
-    if (orientation === 'horizontal') {
-      for (let i = 0; i < length; i += 1) {
-        newShip.coordinates.push([rowIndex, i + colIndex]);
-      }
-    } else if (orientation === 'vertical') {
-      for (let i = 0; i < length; i += 1) {
-        newShip.coordinates.push([i + rowIndex, colIndex]);
-      }
-    }
-
+    const newShip = createShip(name, length, orientation, startPosition);
     ships.push(newShip);
   };
 
@@ -55,7 +63,7 @@ const createGameboard = () => {
 
     ships.forEach((ship) => {
       if (!hitShip) {
-        hitIndex = ship.coordinates.findIndex((coordinate) => {
+        hitIndex = ship.getCoordinates().findIndex((coordinate) => {
           if (
             coordinate[0] === attackCoordinate[0] &&
             coordinate[1] === attackCoordinate[1]
@@ -95,6 +103,62 @@ const createGameboard = () => {
 
   const getHitShots = () => [...hitShots];
 
+  const getTotalSquares = () => [...totalSquares];
+
+  const getRandomUnattackedElement = () => {
+    const firedShots = hitShots.concat(missedShots);
+    const unattackedSquares = totalSquares.filter((square) => {
+      if (firedShots.find((x) => x[0] === square[0] && x[1] === square[1])) {
+        return false;
+      }
+
+      return true;
+    });
+    const index = Math.floor(Math.random() * unattackedSquares.length);
+
+    return unattackedSquares[index];
+  };
+
+  const getAvailableShipStartPositions = (unplacedShip) => {
+    const emptySquares = totalSquares.filter((square) => {
+      if (
+        ships.some((ship) =>
+          ship
+            .getCoordinates()
+            .some((x) => x[0] === square[0] && x[1] === square[1])
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+    const availableShipStartPositions = emptySquares.filter((emptySquare) => {
+      const testShip = createShip(
+        unplacedShip.name,
+        unplacedShip.length,
+        unplacedShip.orientation,
+        emptySquare
+      );
+
+      if (
+        testShip
+          .getCoordinates()
+          .every((x) =>
+            emptySquares.find(
+              (square) => square[0] === x[0] && square[1] === x[1]
+            )
+          )
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return availableShipStartPositions;
+  };
+
   return {
     addShip,
     getShip,
@@ -102,7 +166,74 @@ const createGameboard = () => {
     areAllShipsSunk,
     getMissedShots,
     getHitShots,
+    getTotalSquares,
+    getRandomUnattackedElement,
+    getAvailableShipStartPositions,
   };
 };
 
-export { createShip, createGameboard };
+const createPlayer = (name) => {
+  const attack = (gameboard, coordinate) => {
+    gameboard.receiveAttack(coordinate);
+  };
+
+  return { name, attack };
+};
+
+const gameLoop = (() => {
+  const humanPlayer = createPlayer('human');
+  const computerPlayer = createPlayer('computer');
+  const humanGameboard = createGameboard();
+  const computerGameboard = createGameboard();
+  const availableShips = [
+    { name: 'Carrier', length: 5 },
+    { name: 'Battleship', length: 4 },
+    { name: 'Cruiser', length: 3 },
+    { name: 'Submarine', length: 3 },
+    { name: 'Destroyer', length: 2 },
+  ];
+  const placeComputerShips = (() => {
+    for (let i = 0; i < availableShips.length; i += 1) {
+      const ship = availableShips[i];
+      ship.orientation =
+        Math.floor(Math.random() * 2) === 0 ? 'vertical' : 'horizontal';
+      const availableShipStartPositions =
+        computerGameboard.getAvailableShipStartPositions(ship);
+      ship.startPosition =
+        availableShipStartPositions[
+          Math.floor(Math.random() * availableShipStartPositions.length)
+        ];
+      computerGameboard.addShip(
+        ship.name,
+        ship.length,
+        ship.orientation,
+        ship.startPosition
+      );
+    }
+  })();
+
+  availableShips.forEach((ship) => {
+    console.log(computerGameboard.getShip(ship.name).getCoordinates());
+  });
+
+  const addShipToHuman = (shipInformation) => {
+    humanGameboard.addShip(...shipInformation);
+  };
+  const playTurn = (coordinate) => {
+    humanPlayer.attack(computerGameboard, coordinate);
+    if (computerGameboard.areAllShipsSunk()) {
+      VIEW.win('human');
+      return;
+    }
+    computerPlayer.attack(
+      humanGameboard,
+      humanGameboard.getRandomUnattackedElement()
+    );
+    if (humanGameboard.areAllShipsSunk()) {
+      VIEW.win('computer');
+    }
+  };
+  return { addShipToHuman, playTurn };
+})();
+
+export { createShip, createGameboard, createPlayer, gameLoop };
