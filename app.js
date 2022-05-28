@@ -1,4 +1,4 @@
-import * as VIEW from './view';
+import * as VIEW from './view.js';
 
 const createShip = (name, length, orientation, startPosition) => {
   const shipBody = new Array(length).fill(null);
@@ -52,7 +52,6 @@ const createGameboard = () => {
 
   const getShip = (shipName) => {
     const ship = ships.find((x) => x.name === shipName);
-
     return { ...ship };
   };
 
@@ -180,6 +179,62 @@ const createPlayer = (name) => {
   return { name, attack };
 };
 
+// Events are handled here instead of VIEW to avoid a circular module dependency.
+const eventHandler = (() => {
+  const addPlaceShipEvents = (ship, startPositions) => {
+    const userGameboard = document.querySelector('.user.container .gameboard');
+    const placeableSquares = [];
+    startPositions.forEach((x) => {
+      placeableSquares.push(
+        userGameboard.querySelector(
+          `[data-row-index="${x[0]}"][data-col-index="${x[1]}"]`
+        )
+      );
+    });
+    const getGameboardShipSquares = (e) => {
+      const shipSquares = [e.target];
+
+      for (let i = 1; i <= ship.length - 1; i += 1) {
+        let newShipSquare;
+
+        if (ship.orientation === 'vertical') {
+          newShipSquare = userGameboard.querySelector(
+            `[data-row-index="${
+              Number(e.target.dataset.rowIndex) + i
+            }"][data-col-index="${e.target.dataset.colIndex}"]`
+          );
+        } else if (ship.orientation === 'vertical') {
+          newShipSquare = userGameboard.querySelector(
+            `[data-row-index="${e.target.dataset.rowIndex}"][data-col-index="${
+              Number(e.target.dataset.colIndex) + i
+            }"]`
+          );
+        }
+
+        shipSquares.push(newShipSquare);
+      }
+
+      return shipSquares;
+    };
+    const squareMouseenter = (e) => {
+      getGameboardShipSquares(e).forEach((square) =>
+        square.classList.add('ship')
+      );
+    };
+    const squareMouseout = (e) => {
+      getGameboardShipSquares(e).forEach((square) =>
+        square.classList.remove('ship')
+      );
+    };
+
+    placeableSquares.forEach((square) => {
+      square.addEventListener('mouseenter', squareMouseenter);
+      square.addEventListener('mouseout', squareMouseout);
+    });
+  };
+  return { addPlaceShipEvents };
+})();
+
 const gameLoop = (() => {
   const humanPlayer = createPlayer('human');
   const computerPlayer = createPlayer('computer');
@@ -212,9 +267,30 @@ const gameLoop = (() => {
     }
   })();
 
-  availableShips.forEach((ship) => {
-    console.log(computerGameboard.getShip(ship.name).getCoordinates());
-  });
+  VIEW.init();
+
+  // find ship not in humanGameboard.getShips(), take that ship,
+  // get available start positions,
+  // send ship and available start positions to VIEW for rendering,
+  // send ship and available start positions to eventHandler to
+  // add click events, click event will restart the cycle.
+  // If all ships are placed, then remove grid event listeners,
+  // tell VIEW to render computer gameboard, add computer gameboard
+  // event listeners which will call playTurn on click.
+  const placeUserShip = ((orientation = 'vertical') => {
+    const unplacedShip = availableShips.find((ship) => {
+      if (Object.keys(humanGameboard.getShip(ship.name)).length === 0) {
+        return true;
+      }
+
+      return false;
+    });
+    unplacedShip.orientation = orientation;
+    const availableShipStartPositions =
+      humanGameboard.getAvailableShipStartPositions(unplacedShip);
+    VIEW.updatePlaceShipHeader(unplacedShip.name);
+    eventHandler.addPlaceShipEvents(unplacedShip, availableShipStartPositions);
+  })();
 
   const addShipToHuman = (shipInformation) => {
     humanGameboard.addShip(...shipInformation);
@@ -233,7 +309,7 @@ const gameLoop = (() => {
       VIEW.win('computer');
     }
   };
-  return { addShipToHuman, playTurn };
+  return { placeComputerShips, addShipToHuman, playTurn };
 })();
 
 export { createShip, createGameboard, createPlayer, gameLoop };

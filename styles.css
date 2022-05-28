@@ -1,0 +1,86 @@
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+h1, h2 {
+  margin: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 1fr;
+  background-color: grey;
+}
+
+header {
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  background-color: lightgrey;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+main > .container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+main .computer.container,
+main .user.container {
+  height: 42vh;
+  width: 42vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgb(51, 157, 189);
+  font-size: 20px;
+}
+
+main .computer.container > h2 {
+  text-align: center;
+  margin: 20px;
+}
+
+main .middle.container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgb(57, 127, 184);
+}
+
+main .gameboard {
+  display: flex;
+  flex-wrap: wrap;
+  height: 100%;
+  width: 100%;
+}
+
+main .gameboard > .square {
+  box-sizing: border-box;
+  height: 10%;
+  width: 10%;
+  border: solid rgb(57, 127, 184) 2px;
+}
+
+main .gameboard > .square.ship {
+  background-color: grey;
+}
+
+footer {
+  height: 20px;
+  background-color: lightgray;
+}

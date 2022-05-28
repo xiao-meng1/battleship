@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-jest": "^26.2.2"
+    "eslint-plugin-jest": "^26.2.2",
+    "normalize.css": "^8.0.1"
   }
 }

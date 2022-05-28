@@ -1,4 +1,4 @@
-import { createShip, createGameboard, createPlayer, gameLoop } from './app';
+import { createShip, createGameboard, createPlayer } from './app';
 
 describe('createShip factory function tests', () => {
   test('createShip returns an object', () => {
