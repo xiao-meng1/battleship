@@ -17,11 +17,11 @@
            "error",
            "ignorePackages",
            {
-             "js": "never",
+             "js": "never"
            }
         ]
      },
     "plugins": [
-        "jest"
+        "jest",
     ]
 }

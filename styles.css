@@ -71,13 +71,34 @@ main .gameboard {
 
 main .gameboard > .square {
   box-sizing: border-box;
+  position: relative;
   height: 10%;
   width: 10%;
   border: solid rgb(57, 127, 184) 2px;
 }
 
 main .gameboard > .square.ship {
-  background-color: grey;
+  background-color: darkgrey;
+}
+
+main .gameboard > .square.hit::after {
+  content: "";
+  position: absolute;
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  transform: translate(16.7%, 16.7%);
+  background-color: rgb(174, 0, 0);
+}
+
+main .gameboard > .square.miss::after {
+  content: "";
+  position: absolute;
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  transform: translate(16.7%, 16.7%);
+  background-color: rgb(205, 203, 203);
 }
 
 footer {

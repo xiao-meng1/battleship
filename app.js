@@ -55,6 +55,7 @@ const createGameboard = () => {
     return { ...ship };
   };
 
+  // Todo: return hit or miss
   const receiveAttack = (attackCoordinate) => {
     let hit = false;
     let hitShip;
@@ -81,9 +82,13 @@ const createGameboard = () => {
     if (hit) {
       hitShip.hit(hitIndex);
       hitShots.push(attackCoordinate);
-    } else {
-      missedShots.push(attackCoordinate);
+
+      return 'hit';
     }
+
+    missedShots.push(attackCoordinate);
+
+    return 'miss';
   };
 
   const areAllShipsSunk = () => {
@@ -173,7 +178,9 @@ const createGameboard = () => {
 
 const createPlayer = (name) => {
   const attack = (gameboard, coordinate) => {
-    gameboard.receiveAttack(coordinate);
+    const attackResult = gameboard.receiveAttack(coordinate);
+
+    return attackResult;
   };
 
   return { name, attack };
@@ -182,6 +189,7 @@ const createPlayer = (name) => {
 // Events are handled here instead of VIEW to avoid a circular module dependency.
 const eventHandler = (() => {
   const addPlaceShipEvents = (ship, startPositions) => {
+    const rotateButton = document.querySelector('#rotate-button');
     const userGameboard = document.querySelector('.user.container .gameboard');
     const placeableSquares = [];
     startPositions.forEach((x) => {
@@ -191,8 +199,8 @@ const eventHandler = (() => {
         )
       );
     });
-    const getGameboardShipSquares = (e) => {
-      const shipSquares = [e.target];
+    const getGameboardShipSquares = (targetSquare) => {
+      const shipSquares = [targetSquare];
 
       for (let i = 1; i <= ship.length - 1; i += 1) {
         let newShipSquare;
@@ -200,14 +208,14 @@ const eventHandler = (() => {
         if (ship.orientation === 'vertical') {
           newShipSquare = userGameboard.querySelector(
             `[data-row-index="${
-              Number(e.target.dataset.rowIndex) + i
-            }"][data-col-index="${e.target.dataset.colIndex}"]`
+              Number(targetSquare.dataset.rowIndex) + i
+            }"][data-col-index="${targetSquare.dataset.colIndex}"]`
           );
-        } else if (ship.orientation === 'vertical') {
+        } else if (ship.orientation === 'horizontal') {
           newShipSquare = userGameboard.querySelector(
-            `[data-row-index="${e.target.dataset.rowIndex}"][data-col-index="${
-              Number(e.target.dataset.colIndex) + i
-            }"]`
+            `[data-row-index="${
+              targetSquare.dataset.rowIndex
+            }"][data-col-index="${Number(targetSquare.dataset.colIndex) + i}"]`
           );
         }
 
@@ -217,22 +225,87 @@ const eventHandler = (() => {
       return shipSquares;
     };
     const squareMouseenter = (e) => {
-      getGameboardShipSquares(e).forEach((square) =>
+      getGameboardShipSquares(e.target).forEach((square) =>
         square.classList.add('ship')
       );
     };
     const squareMouseout = (e) => {
-      getGameboardShipSquares(e).forEach((square) =>
+      getGameboardShipSquares(e.target).forEach((square) =>
         square.classList.remove('ship')
       );
+    };
+
+    const rotateButtonEvent = () => {
+      const newOrientation =
+        ship.orientation === 'vertical' ? 'horizontal' : 'vertical';
+      placeableSquares.forEach((square) => {
+        square.removeEventListener('mouseenter', squareMouseenter);
+        square.removeEventListener('mouseout', squareMouseout);
+        square.removeEventListener('click', placeShip);
+      });
+      rotateButton.removeEventListener('click', rotateButtonEvent);
+      gameLoop.setupUserShipPlacement(newOrientation);
+    };
+
+    const placeShip = (e) => {
+      const newShip = {
+        ...ship,
+        startPosition: [
+          Number(e.target.dataset.rowIndex),
+          Number(e.target.dataset.colIndex),
+        ],
+      };
+      placeableSquares.forEach((square) => {
+        square.removeEventListener('mouseenter', squareMouseenter);
+        square.removeEventListener('mouseout', squareMouseout);
+        square.removeEventListener('click', placeShip);
+      });
+      rotateButton.removeEventListener('click', rotateButtonEvent);
+      gameLoop.addShipToHumanGameboard([
+        newShip.name,
+        newShip.length,
+        newShip.orientation,
+        newShip.startPosition,
+      ]);
+      gameLoop.setupUserShipPlacement();
     };
 
     placeableSquares.forEach((square) => {
       square.addEventListener('mouseenter', squareMouseenter);
       square.addEventListener('mouseout', squareMouseout);
+      square.addEventListener('click', placeShip);
+    });
+
+    rotateButton.addEventListener('click', rotateButtonEvent);
+  };
+
+  const attack = (e) => {
+    gameLoop.playTurn([
+      Number(e.target.dataset.rowIndex),
+      Number(e.target.dataset.colIndex),
+    ]);
+    e.target.removeEventListener('click', attack);
+  };
+  // Attack click events that fire gameloop.playTurn. Remove itself on click.
+  const toggleAttackEvents = (winStatus) => {
+    const computerSquares = document.querySelectorAll(
+      'main .computer.container .gameboard .square'
+    );
+
+    if (winStatus === 'win') {
+      computerSquares.forEach((square) => {
+        square.removeEventListener('click', attack);
+      });
+
+      return;
+    }
+
+    computerSquares.forEach((square) => {
+      square.addEventListener('click', attack);
     });
   };
-  return { addPlaceShipEvents };
+
+  return { addPlaceShipEvents, toggleAttackEvents };
 })();
 
 const gameLoop = (() => {
@@ -277,7 +350,7 @@ const gameLoop = (() => {
   // If all ships are placed, then remove grid event listeners,
   // tell VIEW to render computer gameboard, add computer gameboard
   // event listeners which will call playTurn on click.
-  const placeUserShip = ((orientation = 'vertical') => {
+  const setupUserShipPlacement = (orientation = 'vertical') => {
     const unplacedShip = availableShips.find((ship) => {
       if (Object.keys(humanGameboard.getShip(ship.name)).length === 0) {
         return true;
@@ -285,31 +358,60 @@ const gameLoop = (() => {
 
       return false;
     });
+
+    if (unplacedShip === undefined) {
+      VIEW.startGame();
+      eventHandler.toggleAttackEvents();
+
+      return;
+    }
+
     unplacedShip.orientation = orientation;
     const availableShipStartPositions =
       humanGameboard.getAvailableShipStartPositions(unplacedShip);
     VIEW.updatePlaceShipHeader(unplacedShip.name);
     eventHandler.addPlaceShipEvents(unplacedShip, availableShipStartPositions);
-  })();
+  };
 
-  const addShipToHuman = (shipInformation) => {
+  setupUserShipPlacement();
+
+  const addShipToHumanGameboard = (shipInformation) => {
     humanGameboard.addShip(...shipInformation);
   };
-  const playTurn = (coordinate) => {
-    humanPlayer.attack(computerGameboard, coordinate);
+  const playTurn = (humanAttackCoordinate) => {
+    const humanAttackResult = humanPlayer.attack(
+      computerGameboard,
+      humanAttackCoordinate
+    );
+    VIEW.addAttacktoGameboard(
+      'computer',
+      humanAttackCoordinate,
+      humanAttackResult
+    );
+
     if (computerGameboard.areAllShipsSunk()) {
-      VIEW.win('human');
+      eventHandler.toggleAttackEvents('win');
+      VIEW.win('user');
       return;
     }
-    computerPlayer.attack(
+
+    const randomElement = humanGameboard.getRandomUnattackedElement();
+    const computerAttackResult = computerPlayer.attack(
       humanGameboard,
-      humanGameboard.getRandomUnattackedElement()
+      randomElement
     );
+    VIEW.addAttacktoGameboard('user', randomElement, computerAttackResult);
     if (humanGameboard.areAllShipsSunk()) {
+      eventHandler.toggleAttackEvents('win');
       VIEW.win('computer');
     }
   };
-  return { placeComputerShips, addShipToHuman, playTurn };
+  return {
+    placeComputerShips,
+    setupUserShipPlacement,
+    addShipToHumanGameboard,
+    playTurn,
+  };
 })();
 
 export { createShip, createGameboard, createPlayer, gameLoop };

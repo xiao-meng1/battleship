@@ -31,8 +31,34 @@ const updatePlaceShipHeader = (shipName) => {
   placeShipHeader.textContent = `Place your ${shipName}`;
 };
 
-const win = (winner) => {
-  console.log(winner);
+const startGame = () => {
+  const computerContainer = document.querySelector('main .computer.container');
+  const computerGameboard = createGameboard();
+
+  while (computerContainer.firstChild) {
+    computerContainer.firstChild.remove();
+  }
+
+  addGameboard('computer', computerGameboard);
 };
 
-export { init, win, updatePlaceShipHeader };
+const addAttacktoGameboard = (playerName, coordinate, attackResult) => {
+  const attackedSquare = document.querySelector(
+    `.${playerName}.container .gameboard ` +
+      `.square[data-row-index="${coordinate[0]}"][data-col-index="${coordinate[1]}"]`
+  );
+  attackedSquare.classList.add(attackResult);
+};
+
+const win = (winner) => {
+  const middleContainerHeader = document.querySelector(
+    'main .middle.container h2'
+  );
+  if ((winner = 'user')) {
+    middleContainerHeader.textContent = 'You win!';
+  } else if ((winner = 'computer')) {
+    middleContainerHeader.textContent = 'You lose!';
+  }
+};
+
+export { init, updatePlaceShipHeader, startGame, addAttacktoGameboard, win };
